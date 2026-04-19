@@ -1,0 +1,101 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum PostStatus {
+  draft
+  scheduled
+  published
+  archived
+}
+
+model User {
+  id        String       @id @default(cuid())
+  email     String       @unique
+  name      String?
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+  posts     Post[]
+  media     MediaAsset[]
+}
+
+model MediaAsset {
+  id          String      @id @default(cuid())
+  url         String
+  storagePath String
+  width       Int
+  height      Int
+  aspectRatio Float
+  format      String
+  sizeBytes   Int
+  title       String?
+  altText     String?
+  tags        String[]    @default([])
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  deletedAt   DateTime?
+  ownerId     String
+  owner       User        @relation(fields: [ownerId], references: [id], onDelete: Restrict)
+  postMedia   PostMedia[]
+
+  @@index([deletedAt])
+  @@index([ownerId])
+}
+
+model Post {
+  id            String         @id @default(cuid())
+  title         String
+  caption       String?
+  status        PostStatus     @default(draft)
+  scheduledAt   DateTime?
+  publishedAt   DateTime?
+  positionIndex Int            @default(0)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  deletedAt     DateTime?
+  ownerId       String
+  owner         User           @relation(fields: [ownerId], references: [id], onDelete: Restrict)
+  media         PostMedia[]
+  calendarEntry CalendarEntry?
+
+  @@index([deletedAt])
+  @@index([ownerId])
+  @@index([scheduledAt])
+}
+
+model PostMedia {
+  id           String     @id @default(cuid())
+  postId       String
+  mediaAssetId String
+  order        Int
+  createdAt    DateTime   @default(now())
+  post         Post       @relation(fields: [postId], references: [id], onDelete: Cascade)
+  mediaAsset   MediaAsset @relation(fields: [mediaAssetId], references: [id], onDelete: Restrict)
+
+  @@unique([postId, mediaAssetId])
+  @@unique([postId, order])
+  @@index([postId])
+  @@index([mediaAssetId])
+}
+
+model CalendarEntry {
+  id        String   @id @default(cuid())
+  postId    String   @unique
+  date      DateTime
+  time      String?
+  createdAt DateTime @default(now())
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@index([date])
+}

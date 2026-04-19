@@ -1,0 +1,65 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+html,
+body {
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
+  @apply bg-zinc-950 text-zinc-100;
+  font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+}
+
+* {
+  accent-color: #71717a;
+}
+
+input,
+textarea,
+select {
+  color-scheme: dark;
+}
+
+input:focus,
+textarea:focus,
+select:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(113, 113, 122, 0.55);
+}
+
+.feed-grid-shell {
+  display: flex;
+  justify-content: flex-end;
+  min-height: 100%;
+  height: 100%;
+  overflow-y: auto;
+}
+
+.feed-grid {
+  --feed-gap: 2px;
+  --feed-visible-rows: 3;
+  --feed-tile-h: calc((100dvh - (var(--feed-visible-rows) - 1) * var(--feed-gap)) / var(--feed-visible-rows));
+  width: min(100%, calc(var(--feed-tile-h) * 3 * 4 / 5 + (2 * var(--feed-gap))));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-auto-rows: var(--feed-tile-h);
+  gap: var(--feed-gap);
+  align-content: start;
+}
+
+@media (max-width: 1024px) {
+  .feed-grid-shell {
+    justify-content: stretch;
+  }
+
+  .feed-grid {
+    width: 100%;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
