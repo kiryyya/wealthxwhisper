@@ -59,7 +59,7 @@ export async function POST(req: Request) {
 
       return prisma.mediaAsset.create({
         data: {
-          url: `/${storagePath}`,
+          url: `/api/${storagePath}`,
           storagePath,
           width: dimensions.width,
           height: dimensions.height,
