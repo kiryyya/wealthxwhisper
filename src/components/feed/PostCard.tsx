@@ -32,7 +32,7 @@ export function PostCard({ post, onOpen }: PostCardProps) {
       className="group relative cursor-pointer overflow-hidden bg-zinc-900"
       onClick={() => onOpen(post)}
     >
-      <div className="relative aspect-[4/5] w-full overflow-hidden">
+      <div className="relative h-full w-full overflow-hidden">
         {current ? (
           <Image
             src={current.url}
