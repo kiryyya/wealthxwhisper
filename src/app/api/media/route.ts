@@ -7,6 +7,7 @@ import { NextResponse } from "next/server";
 
 import { ensureDefaultUser } from "@/lib/db";
 import { prisma } from "@/lib/prisma";
+import { getUploadDir } from "@/lib/upload-storage";
 
 export async function GET() {
   try {
@@ -38,7 +39,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "No files uploaded" }, { status: 400 });
   }
 
-  const uploadDir = path.join(process.cwd(), "public", "uploads");
+  const uploadDir = getUploadDir();
   await mkdir(uploadDir, { recursive: true });
 
   const createdMedia = await Promise.all(
