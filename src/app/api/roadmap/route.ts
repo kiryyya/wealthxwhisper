@@ -3,13 +3,29 @@ import { NextResponse } from "next/server";
 
 import { prisma } from "@/lib/prisma";
 import { roadmapSaveSchema } from "@/lib/validators";
-import type { RoadmapCard } from "@/types";
+import type { RoadmapCard, RoadmapEdge } from "@/types";
 
 const DEFAULT_CANVAS_ID = "main";
 
-function parseItems(value: Prisma.JsonValue): RoadmapCard[] {
-  if (!Array.isArray(value)) return [];
-  return value as RoadmapCard[];
+type CanvasPayload = {
+  cards: RoadmapCard[];
+  edges: RoadmapEdge[];
+};
+
+function parseCanvasData(value: Prisma.JsonValue): CanvasPayload {
+  if (Array.isArray(value)) {
+    return { cards: value as RoadmapCard[], edges: [] };
+  }
+
+  if (value && typeof value === "object") {
+    const data = value as Record<string, unknown>;
+    return {
+      cards: Array.isArray(data.cards) ? (data.cards as RoadmapCard[]) : [],
+      edges: Array.isArray(data.edges) ? (data.edges as RoadmapEdge[]) : [],
+    };
+  }
+
+  return { cards: [], edges: [] };
 }
 
 export async function GET() {
@@ -17,12 +33,15 @@ export async function GET() {
     const canvas = await prisma.roadmapCanvas.upsert({
       where: { id: DEFAULT_CANVAS_ID },
       update: {},
-      create: { id: DEFAULT_CANVAS_ID, items: [] },
+      create: { id: DEFAULT_CANVAS_ID, items: { cards: [], edges: [] } },
     });
+
+    const { cards, edges } = parseCanvasData(canvas.items);
 
     return NextResponse.json({
       id: canvas.id,
-      items: parseItems(canvas.items),
+      cards,
+      edges,
       createdAt: canvas.createdAt,
       updatedAt: canvas.updatedAt,
     });
@@ -41,15 +60,23 @@ export async function PUT(req: Request) {
   }
 
   try {
+    const payload = {
+      cards: parsed.data.cards,
+      edges: parsed.data.edges,
+    };
+
     const canvas = await prisma.roadmapCanvas.upsert({
       where: { id: DEFAULT_CANVAS_ID },
-      update: { items: parsed.data.items },
-      create: { id: DEFAULT_CANVAS_ID, items: parsed.data.items },
+      update: { items: payload },
+      create: { id: DEFAULT_CANVAS_ID, items: payload },
     });
+
+    const { cards, edges } = parseCanvasData(canvas.items);
 
     return NextResponse.json({
       id: canvas.id,
-      items: parseItems(canvas.items),
+      cards,
+      edges,
       createdAt: canvas.createdAt,
       updatedAt: canvas.updatedAt,
     });

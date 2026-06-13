@@ -58,9 +58,16 @@ export type RoadmapCard = {
   color: string;
 };
 
+export type RoadmapEdge = {
+  id: string;
+  fromId: string;
+  toId: string;
+};
+
 export type RoadmapCanvasData = {
   id: string;
-  items: RoadmapCard[];
+  cards: RoadmapCard[];
+  edges: RoadmapEdge[];
   createdAt: string;
   updatedAt: string;
 };

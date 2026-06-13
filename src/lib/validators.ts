@@ -26,13 +26,20 @@ export const testRecordInputSchema = z.object({
 export const roadmapCardSchema = z.object({
   id: z.string().min(1),
   text: z.string(),
-  x: z.number(),
-  y: z.number(),
+  x: z.number().finite(),
+  y: z.number().finite(),
   width: z.number().positive(),
   height: z.number().positive(),
   color: z.string().min(1),
 });
 
+export const roadmapEdgeSchema = z.object({
+  id: z.string().min(1),
+  fromId: z.string().min(1),
+  toId: z.string().min(1),
+});
+
 export const roadmapSaveSchema = z.object({
-  items: z.array(roadmapCardSchema),
+  cards: z.array(roadmapCardSchema),
+  edges: z.array(roadmapEdgeSchema),
 });
