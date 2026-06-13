@@ -18,3 +18,7 @@ export const mediaUpdateSchema = z.object({
   altText: z.string().trim().optional().nullable(),
   tags: z.array(z.string().trim()).optional(),
 });
+
+export const testRecordInputSchema = z.object({
+  text: z.string().trim().min(1, "Text is required"),
+});

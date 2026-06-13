@@ -1,4 +1,4 @@
-import type { CalendarEntry, MediaAsset, Post, PostMedia, PostStatus } from "@prisma/client";
+import type { CalendarEntry, MediaAsset, Post, PostMedia, PostStatus, TestRecord } from "@prisma/client";
 
 export type PostWithMedia = Post & {
   media: (PostMedia & {
@@ -43,3 +43,9 @@ export type UpdateMediaPayload = {
 export type CalendarEntryWithPost = CalendarEntry & {
   post: Post;
 };
+
+export type TestRecordPayload = {
+  text: string;
+};
+
+export type { TestRecord };
