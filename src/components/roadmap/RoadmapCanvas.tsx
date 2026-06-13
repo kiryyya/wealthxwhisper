@@ -10,10 +10,11 @@ import type { RoadmapCanvasData, RoadmapCard, RoadmapEdge } from "@/types";
 const CARD_COLORS = ["#3f3f46", "#365314", "#1e3a5f", "#581c87", "#7f1d1d"];
 const DEFAULT_CARD: Omit<RoadmapCard, "id"> = {
   text: "Новая задача",
+  date: null,
   x: 80,
   y: 80,
   width: 220,
-  height: 130,
+  height: 160,
   color: CARD_COLORS[0],
 };
 
@@ -190,7 +191,7 @@ export function RoadmapCanvas() {
 
   const handlePointerDown = (event: React.PointerEvent<HTMLDivElement>, card: RoadmapCard) => {
     if (mode !== "move") return;
-    if ((event.target as HTMLElement).closest("textarea,button")) return;
+    if ((event.target as HTMLElement).closest("textarea,button,input")) return;
 
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -399,9 +400,20 @@ export function RoadmapCanvas() {
               value={card.text}
               onChange={(event) => updateCard(card.id, { text: event.target.value })}
               onClick={(event) => event.stopPropagation()}
-              className="h-full resize-none bg-transparent px-3 py-2 text-sm text-zinc-100 outline-none placeholder:text-zinc-300/60"
+              className="min-h-0 flex-1 resize-none bg-transparent px-3 py-2 text-sm text-zinc-100 outline-none placeholder:text-zinc-300/60"
               placeholder="Опишите этап..."
             />
+            <div className="border-t border-black/20 px-2 py-1.5">
+              <input
+                type="date"
+                value={card.date ?? ""}
+                onChange={(event) =>
+                  updateCard(card.id, { date: event.target.value || null })
+                }
+                onClick={(event) => event.stopPropagation()}
+                className="w-full rounded bg-black/20 px-2 py-1 text-xs text-zinc-100 outline-none [color-scheme:dark] placeholder:text-zinc-400"
+              />
+            </div>
           </div>
         ))}
       </div>

@@ -51,6 +51,7 @@ export type TestRecordPayload = {
 export type RoadmapCard = {
   id: string;
   text: string;
+  date: string | null;
   x: number;
   y: number;
   width: number;

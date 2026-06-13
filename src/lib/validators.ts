@@ -26,6 +26,7 @@ export const testRecordInputSchema = z.object({
 export const roadmapCardSchema = z.object({
   id: z.string().min(1),
   text: z.string(),
+  date: z.string().nullable().optional(),
   x: z.number().finite(),
   y: z.number().finite(),
   width: z.number().positive(),
