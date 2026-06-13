@@ -22,3 +22,17 @@ export const mediaUpdateSchema = z.object({
 export const testRecordInputSchema = z.object({
   text: z.string().trim().min(1, "Text is required"),
 });
+
+export const roadmapCardSchema = z.object({
+  id: z.string().min(1),
+  text: z.string(),
+  x: z.number(),
+  y: z.number(),
+  width: z.number().positive(),
+  height: z.number().positive(),
+  color: z.string().min(1),
+});
+
+export const roadmapSaveSchema = z.object({
+  items: z.array(roadmapCardSchema),
+});

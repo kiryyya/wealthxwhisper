@@ -48,4 +48,21 @@ export type TestRecordPayload = {
   text: string;
 };
 
+export type RoadmapCard = {
+  id: string;
+  text: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  color: string;
+};
+
+export type RoadmapCanvasData = {
+  id: string;
+  items: RoadmapCard[];
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type { TestRecord };
