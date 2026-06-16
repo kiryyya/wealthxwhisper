@@ -44,3 +44,11 @@ export const roadmapSaveSchema = z.object({
   cards: z.array(roadmapCardSchema),
   edges: z.array(roadmapEdgeSchema),
 });
+
+export const gptPromptSchema = z.object({
+  prompt: z.string(),
+});
+
+export const gptChatInputSchema = z.object({
+  message: z.string().trim().min(1, "Message is required"),
+});

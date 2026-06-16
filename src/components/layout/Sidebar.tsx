@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { CalendarDays, GalleryHorizontal, Grid3X3, List, Map, SunMoon } from "lucide-react";
+import { Bot, CalendarDays, GalleryHorizontal, Grid3X3, List, Map, SunMoon } from "lucide-react";
 import { usePathname } from "next/navigation";
 import clsx from "clsx";
 
@@ -18,6 +18,7 @@ const links = [
   { href: "/media", label: "Каталог изображений", icon: GalleryHorizontal },
   { href: "/records", label: "Тестовые записи", icon: List },
   { href: "/roadmap", label: "Roadmap", icon: Map },
+  { href: "/gpt", label: "GPT", icon: Bot },
 ];
 
 export function Sidebar({ compact = false, onNavigate }: SidebarProps) {

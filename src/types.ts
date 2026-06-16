@@ -73,4 +73,19 @@ export type RoadmapCanvasData = {
   updatedAt: string;
 };
 
+export type GptMessage = {
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+  createdAt: string;
+};
+
+export type GptChatData = {
+  id: string;
+  prompt: string;
+  messages: GptMessage[];
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type { TestRecord };
