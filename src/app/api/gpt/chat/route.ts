@@ -2,8 +2,7 @@ import { randomUUID } from "crypto";
 
 import { NextResponse } from "next/server";
 
-import { DEFAULT_GPT_PROMPT } from "@/lib/constants";
-import { DEFAULT_CHAT_ID, ensureGptChat, parseGptMessages, serializeGptChat } from "@/lib/gpt-chat";
+import { buildSystemPrompt, DEFAULT_CHAT_ID, ensureGptChat, parseGptMessages, savePrompt, serializeGptChat } from "@/lib/gpt-chat";
 import { getOpenAiApiKey, isOpenAiConfigured } from "@/lib/openai";
 import { prisma } from "@/lib/prisma";
 import { gptChatInputSchema } from "@/lib/validators";
@@ -30,7 +29,12 @@ export async function POST(req: Request) {
   }
 
   try {
-    const chat = await ensureGptChat();
+    let chat = await ensureGptChat();
+
+    if (parsed.data.prompt !== undefined && parsed.data.prompt !== chat.prompt) {
+      chat = await savePrompt(parsed.data.prompt);
+    }
+
     const history = parseGptMessages(chat.messages);
     const userMessage: GptMessage = {
       id: randomUUID(),
@@ -40,7 +44,7 @@ export async function POST(req: Request) {
     };
 
     const openAiMessages = [
-      { role: "system" as const, content: chat.prompt || DEFAULT_GPT_PROMPT },
+      { role: "system" as const, content: buildSystemPrompt(chat.prompt) },
       ...history.map((item) => ({ role: item.role, content: item.content })),
       { role: "user" as const, content: userMessage.content },
     ];

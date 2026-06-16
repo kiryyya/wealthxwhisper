@@ -1,12 +1,12 @@
 "use client";
 
-import { Bot, Check, History, RotateCcw, Search, Send, Trash2, User } from "lucide-react";
+import { Bot, Check, ChevronDown, ChevronUp, History, RotateCcw, Search, Send, Trash2, User } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import clsx from "clsx";
 
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
-import { DEFAULT_GPT_PROMPT } from "@/lib/constants";
+import { DEFAULT_GPT_PROMPT, GPT_SHOW_PROMPT_HISTORY_STORAGE } from "@/lib/constants";
 import type { GptChatData, GptMessage, GptPromptHistoryEntry } from "@/types";
 
 function applyChatData(
@@ -37,12 +37,14 @@ export function GptWorkspace() {
   const [promptHistory, setPromptHistory] = useState<GptPromptHistoryEntry[]>([]);
   const [activePromptHistoryId, setActivePromptHistoryId] = useState<string | null>(null);
   const [historySearch, setHistorySearch] = useState("");
+  const [showPromptHistory, setShowPromptHistory] = useState(false);
   const [messages, setMessages] = useState<GptMessage[]>([]);
   const [openAiConfigured, setOpenAiConfigured] = useState(false);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(true);
   const [savingPrompt, setSavingPrompt] = useState(false);
   const [restoringId, setRestoringId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
   const [clearing, setClearing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -76,11 +78,21 @@ export function GptWorkspace() {
 
   useEffect(() => {
     loadChat();
+    const stored = localStorage.getItem(GPT_SHOW_PROMPT_HISTORY_STORAGE);
+    if (stored === "true") setShowPromptHistory(true);
   }, [loadChat]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, sending]);
+
+  const togglePromptHistory = () => {
+    setShowPromptHistory((prev) => {
+      const next = !prev;
+      localStorage.setItem(GPT_SHOW_PROMPT_HISTORY_STORAGE, String(next));
+      return next;
+    });
+  };
 
   const filteredHistory = useMemo(() => {
     const query = historySearch.trim().toLowerCase();
@@ -125,6 +137,22 @@ export function GptWorkspace() {
     }
   };
 
+  const deletePromptVersion = async (historyId: string) => {
+    setDeletingId(historyId);
+    setError(null);
+
+    try {
+      const response = await fetch(`/api/gpt/prompts/${historyId}`, { method: "DELETE" });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Не удалось удалить версию");
+      applyChatData(data, setters);
+    } catch (deleteError) {
+      setError(deleteError instanceof Error ? deleteError.message : "Ошибка удаления");
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
   const sendMessage = async () => {
     const trimmed = input.trim();
     if (!trimmed || sending) return;
@@ -142,7 +170,7 @@ export function GptWorkspace() {
       const response = await fetch("/api/gpt/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: trimmed }),
+        body: JSON.stringify({ message: trimmed, prompt: draftPrompt }),
       });
 
       const data = await response.json();
@@ -176,13 +204,13 @@ export function GptWorkspace() {
   };
 
   const promptChanged = draftPrompt !== savedPrompt;
+  const canDeleteHistory = promptHistory.length > 1;
 
   return (
     <div className="flex h-[calc(100vh-8rem)] flex-col gap-4">
       {!openAiConfigured && (
         <p className="rounded-lg border border-amber-900/50 bg-amber-950/30 px-3 py-2 text-sm text-amber-200">
-          Укажите переменную окружения <code className="text-amber-100">OPENAI_API_KEY</code> на сервере (Railway →
-          Variables).
+          Укажите переменную окружения <code className="text-amber-100">OPENAI_API_KEY</code> на сервере web.
         </p>
       )}
 
@@ -192,11 +220,18 @@ export function GptWorkspace() {
 
       <div className="grid min-h-0 flex-1 gap-4 lg:grid-cols-2">
         <section className="flex min-h-0 flex-col gap-3 rounded-xl border border-zinc-800 bg-zinc-900/40 p-4">
-          <div className="space-y-1">
-            <h2 className="text-sm font-semibold text-zinc-100">Промпт</h2>
-            <p className="text-xs text-zinc-400">
-              Системный промпт всегда передаётся в GPT вместе с историей чата.
-            </p>
+          <div className="flex items-start justify-between gap-2">
+            <div className="space-y-1">
+              <h2 className="text-sm font-semibold text-zinc-100">Промпт</h2>
+              <p className="text-xs text-zinc-400">
+                Текст из редактора передаётся в GPT при каждом сообщении.
+              </p>
+            </div>
+            <Button variant="secondary" onClick={togglePromptHistory}>
+              <History size={16} />
+              {showPromptHistory ? "Скрыть историю" : "История промптов"}
+              {showPromptHistory ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+            </Button>
           </div>
 
           <label className="flex min-h-0 flex-col gap-2">
@@ -213,89 +248,111 @@ export function GptWorkspace() {
           <div className="space-y-2 rounded-lg border border-zinc-800 bg-zinc-950/80 p-3">
             <div className="flex items-center justify-between gap-2">
               <span className="text-xs font-medium uppercase tracking-wide text-zinc-400">Подтверждение</span>
-              {promptSavedAt && !promptChanged && (
-                <span className="text-[10px] text-emerald-400">Активен</span>
+              {!promptChanged && <span className="text-[10px] text-emerald-400">Синхронизирован</span>}
+              {promptChanged && (
+                <span className="text-[10px] text-amber-400">Будет применён при отправке сообщения</span>
               )}
-              {promptChanged && <span className="text-[10px] text-amber-400">Есть несохранённые изменения</span>}
             </div>
             <p className="max-h-24 overflow-y-auto whitespace-pre-wrap text-sm text-zinc-300">
               {draftPrompt || "Промпт пустой"}
             </p>
             <Button onClick={confirmPrompt} disabled={loading || savingPrompt || !promptChanged} className="w-full">
               <Check size={16} />
-              {savingPrompt ? "Сохранение..." : "Подтвердить и сохранить промпт"}
+              {savingPrompt ? "Сохранение..." : "Подтвердить и сохранить в историю"}
             </Button>
+            {promptSavedAt && (
+              <p className="text-[10px] text-zinc-500">Последнее сохранение: {promptSavedAt.toLocaleString()}</p>
+            )}
           </div>
 
-          <div className="flex min-h-0 flex-col gap-2 rounded-lg border border-zinc-800 bg-zinc-950/80 p-3">
-            <div className="flex items-center gap-2">
-              <History size={14} className="text-zinc-400" />
-              <span className="text-xs font-medium uppercase tracking-wide text-zinc-400">История промптов</span>
-            </div>
-            <div className="relative">
-              <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-zinc-500" />
-              <Input
-                value={historySearch}
-                onChange={(event) => setHistorySearch(event.target.value)}
-                placeholder="Поиск по тексту..."
-                className="pl-9"
-              />
-            </div>
-            <div className="min-h-0 max-h-44 space-y-2 overflow-y-auto">
-              {filteredHistory.length === 0 && (
-                <p className="text-xs text-zinc-500">История пуста или ничего не найдено.</p>
-              )}
-              {filteredHistory.map((entry) => {
-                const isActive = entry.id === activePromptHistoryId;
-                return (
-                  <div
-                    key={entry.id}
-                    className={clsx(
-                      "rounded-lg border px-3 py-2",
-                      isActive ? "border-emerald-700/60 bg-emerald-950/20" : "border-zinc-800 bg-zinc-900/60",
-                    )}
-                  >
-                    <div className="mb-1 flex items-center justify-between gap-2">
-                      <span className="text-[10px] text-zinc-500">
-                        {new Date(entry.createdAt).toLocaleString()}
-                      </span>
-                      {isActive && <span className="text-[10px] text-emerald-400">Активный</span>}
+          {showPromptHistory && (
+            <div className="flex min-h-0 flex-col gap-2 rounded-lg border border-zinc-800 bg-zinc-950/80 p-3">
+              <div className="flex items-center gap-2">
+                <History size={14} className="text-zinc-400" />
+                <span className="text-xs font-medium uppercase tracking-wide text-zinc-400">История промптов</span>
+              </div>
+              <div className="relative">
+                <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-zinc-500" />
+                <Input
+                  value={historySearch}
+                  onChange={(event) => setHistorySearch(event.target.value)}
+                  placeholder="Поиск по тексту..."
+                  className="pl-9"
+                />
+              </div>
+              <div className="min-h-0 max-h-44 space-y-2 overflow-y-auto">
+                {filteredHistory.length === 0 && (
+                  <p className="text-xs text-zinc-500">История пуста или ничего не найдено.</p>
+                )}
+                {filteredHistory.map((entry) => {
+                  const isActive = entry.id === activePromptHistoryId;
+                  return (
+                    <div
+                      key={entry.id}
+                      className={clsx(
+                        "rounded-lg border px-3 py-2",
+                        isActive ? "border-emerald-700/60 bg-emerald-950/20" : "border-zinc-800 bg-zinc-900/60",
+                      )}
+                    >
+                      <div className="mb-1 flex items-center justify-between gap-2">
+                        <span className="text-[10px] text-zinc-500">
+                          {new Date(entry.createdAt).toLocaleString()}
+                        </span>
+                        {isActive && <span className="text-[10px] text-emerald-400">Активный</span>}
+                      </div>
+                      <p className="line-clamp-3 whitespace-pre-wrap text-xs text-zinc-300">{entry.content}</p>
+                      <div className="mt-2 flex gap-2">
+                        {!isActive && (
+                          <Button
+                            variant="secondary"
+                            className="flex-1"
+                            disabled={restoringId === entry.id}
+                            onClick={() => restorePrompt(entry.id)}
+                          >
+                            <RotateCcw size={14} />
+                            {restoringId === entry.id ? "..." : "Откатить"}
+                          </Button>
+                        )}
+                        <Button
+                          variant="ghost"
+                          disabled={!canDeleteHistory || deletingId === entry.id}
+                          onClick={() => deletePromptVersion(entry.id)}
+                          title={canDeleteHistory ? "Удалить версию" : "Нельзя удалить последнюю версию"}
+                        >
+                          <Trash2 size={14} />
+                        </Button>
+                      </div>
                     </div>
-                    <p className="line-clamp-3 whitespace-pre-wrap text-xs text-zinc-300">{entry.content}</p>
-                    {!isActive && (
-                      <Button
-                        variant="secondary"
-                        className="mt-2 w-full"
-                        disabled={restoringId === entry.id}
-                        onClick={() => restorePrompt(entry.id)}
-                      >
-                        <RotateCcw size={14} />
-                        {restoringId === entry.id ? "Откат..." : "Откатить"}
-                      </Button>
-                    )}
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
             </div>
-          </div>
+          )}
         </section>
 
         <section className="flex min-h-0 flex-col gap-3 rounded-xl border border-zinc-800 bg-zinc-900/40 p-4">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="space-y-1">
               <h2 className="text-sm font-semibold text-zinc-100">Чат с GPT</h2>
-              <p className="text-xs text-zinc-400">История хранится в базе и сохраняет контекст диалога.</p>
+              <p className="text-xs text-zinc-400">GPT получает актуальный промпт из редактора при каждом сообщении.</p>
             </div>
             <Button variant="secondary" onClick={clearHistory} disabled={loading || clearing || messages.length === 0}>
               <Trash2 size={16} />
-              Очистить
+              Очистить чат
             </Button>
+          </div>
+
+          <div className="rounded-lg border border-zinc-800 bg-zinc-950/80 p-3">
+            <p className="mb-1 text-[10px] uppercase tracking-wide text-zinc-500">Активный промпт для GPT</p>
+            <p className="max-h-20 overflow-y-auto whitespace-pre-wrap text-xs text-zinc-300">
+              {draftPrompt || DEFAULT_GPT_PROMPT}
+            </p>
           </div>
 
           <div className="min-h-0 flex-1 overflow-y-auto rounded-lg border border-zinc-800 bg-zinc-950/50 p-3">
             {loading && <p className="text-sm text-zinc-500">Загрузка истории...</p>}
             {!loading && messages.length === 0 && (
-              <p className="text-sm text-zinc-500">Начните диалог — GPT будет следовать активному промпту.</p>
+              <p className="text-sm text-zinc-500">Начните диалог — GPT будет следовать промпту выше.</p>
             )}
 
             <div className="space-y-3">
