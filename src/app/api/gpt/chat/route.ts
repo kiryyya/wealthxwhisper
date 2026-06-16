@@ -3,7 +3,8 @@ import { randomUUID } from "crypto";
 import { NextResponse } from "next/server";
 
 import { DEFAULT_GPT_PROMPT } from "@/lib/constants";
-import { DEFAULT_CHAT_ID, parseGptMessages } from "@/lib/gpt-chat";
+import { DEFAULT_CHAT_ID, ensureGptChat, parseGptMessages, serializeGptChat } from "@/lib/gpt-chat";
+import { getOpenAiApiKey, isOpenAiConfigured } from "@/lib/openai";
 import { prisma } from "@/lib/prisma";
 import { gptChatInputSchema } from "@/lib/validators";
 import type { GptMessage } from "@/types";
@@ -14,9 +15,11 @@ type OpenAiResponse = {
 };
 
 export async function POST(req: Request) {
-  const apiKey = req.headers.get("x-openai-api-key")?.trim();
-  if (!apiKey) {
-    return NextResponse.json({ error: "OpenAI API key is required" }, { status: 401 });
+  if (!isOpenAiConfigured()) {
+    return NextResponse.json(
+      { error: "OPENAI_API_KEY is not configured on the server" },
+      { status: 503 },
+    );
   }
 
   const body = await req.json();
@@ -27,16 +30,7 @@ export async function POST(req: Request) {
   }
 
   try {
-    const chat = await prisma.gptChat.upsert({
-      where: { id: DEFAULT_CHAT_ID },
-      update: {},
-      create: {
-        id: DEFAULT_CHAT_ID,
-        prompt: DEFAULT_GPT_PROMPT,
-        messages: [],
-      },
-    });
-
+    const chat = await ensureGptChat();
     const history = parseGptMessages(chat.messages);
     const userMessage: GptMessage = {
       id: randomUUID(),
@@ -54,7 +48,7 @@ export async function POST(req: Request) {
     const openAiResponse = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${apiKey}`,
+        Authorization: `Bearer ${getOpenAiApiKey()}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
@@ -90,14 +84,12 @@ export async function POST(req: Request) {
     const updated = await prisma.gptChat.update({
       where: { id: DEFAULT_CHAT_ID },
       data: { messages: nextMessages },
+      include: { promptHistory: { orderBy: { createdAt: "desc" } } },
     });
 
     return NextResponse.json({
-      id: updated.id,
-      prompt: updated.prompt,
-      messages: parseGptMessages(updated.messages),
-      createdAt: updated.createdAt,
-      updatedAt: updated.updatedAt,
+      ...serializeGptChat(updated),
+      openAiConfigured: isOpenAiConfigured(),
     });
   } catch (error) {
     console.error("POST /api/gpt/chat failed", error);

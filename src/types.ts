@@ -83,9 +83,18 @@ export type GptMessage = {
 export type GptChatData = {
   id: string;
   prompt: string;
+  activePromptHistoryId: string | null;
   messages: GptMessage[];
+  promptHistory: GptPromptHistoryEntry[];
+  openAiConfigured: boolean;
   createdAt: string;
   updatedAt: string;
+};
+
+export type GptPromptHistoryEntry = {
+  id: string;
+  content: string;
+  createdAt: string;
 };
 
 export type { TestRecord };

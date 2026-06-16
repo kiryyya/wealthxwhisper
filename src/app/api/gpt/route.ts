@@ -1,28 +1,17 @@
 import { NextResponse } from "next/server";
 
-import { DEFAULT_GPT_PROMPT } from "@/lib/constants";
-import { DEFAULT_CHAT_ID, parseGptMessages } from "@/lib/gpt-chat";
+import { ensureGptChat, savePrompt, serializeGptChat, DEFAULT_CHAT_ID } from "@/lib/gpt-chat";
+import { isOpenAiConfigured } from "@/lib/openai";
 import { prisma } from "@/lib/prisma";
 import { gptPromptSchema } from "@/lib/validators";
 
 export async function GET() {
   try {
-    const chat = await prisma.gptChat.upsert({
-      where: { id: DEFAULT_CHAT_ID },
-      update: {},
-      create: {
-        id: DEFAULT_CHAT_ID,
-        prompt: DEFAULT_GPT_PROMPT,
-        messages: [],
-      },
-    });
+    const chat = await ensureGptChat();
 
     return NextResponse.json({
-      id: chat.id,
-      prompt: chat.prompt,
-      messages: parseGptMessages(chat.messages),
-      createdAt: chat.createdAt,
-      updatedAt: chat.updatedAt,
+      ...serializeGptChat(chat),
+      openAiConfigured: isOpenAiConfigured(),
     });
   } catch (error) {
     console.error("GET /api/gpt failed", error);
@@ -39,22 +28,11 @@ export async function PUT(req: Request) {
   }
 
   try {
-    const chat = await prisma.gptChat.upsert({
-      where: { id: DEFAULT_CHAT_ID },
-      update: { prompt: parsed.data.prompt },
-      create: {
-        id: DEFAULT_CHAT_ID,
-        prompt: parsed.data.prompt,
-        messages: [],
-      },
-    });
+    const chat = await savePrompt(parsed.data.prompt);
 
     return NextResponse.json({
-      id: chat.id,
-      prompt: chat.prompt,
-      messages: parseGptMessages(chat.messages),
-      createdAt: chat.createdAt,
-      updatedAt: chat.updatedAt,
+      ...serializeGptChat(chat),
+      openAiConfigured: isOpenAiConfigured(),
     });
   } catch (error) {
     console.error("PUT /api/gpt failed", error);
@@ -64,22 +42,16 @@ export async function PUT(req: Request) {
 
 export async function DELETE() {
   try {
-    const chat = await prisma.gptChat.upsert({
+    await ensureGptChat();
+    const chat = await prisma.gptChat.update({
       where: { id: DEFAULT_CHAT_ID },
-      update: { messages: [] },
-      create: {
-        id: DEFAULT_CHAT_ID,
-        prompt: DEFAULT_GPT_PROMPT,
-        messages: [],
-      },
+      data: { messages: [] },
+      include: { promptHistory: { orderBy: { createdAt: "desc" } } },
     });
 
     return NextResponse.json({
-      id: chat.id,
-      prompt: chat.prompt,
-      messages: [],
-      createdAt: chat.createdAt,
-      updatedAt: chat.updatedAt,
+      ...serializeGptChat(chat),
+      openAiConfigured: isOpenAiConfigured(),
     });
   } catch (error) {
     console.error("DELETE /api/gpt failed", error);

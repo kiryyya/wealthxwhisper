@@ -1,27 +1,62 @@
 "use client";
 
-import { Bot, Check, KeyRound, Send, Trash2, User } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { Bot, Check, History, RotateCcw, Search, Send, Trash2, User } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import clsx from "clsx";
 
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
-import { DEFAULT_GPT_PROMPT, OPENAI_API_KEY_STORAGE } from "@/lib/constants";
-import type { GptChatData, GptMessage } from "@/types";
+import { DEFAULT_GPT_PROMPT } from "@/lib/constants";
+import type { GptChatData, GptMessage, GptPromptHistoryEntry } from "@/types";
+
+function applyChatData(
+  data: GptChatData,
+  setters: {
+    setDraftPrompt: (value: string) => void;
+    setSavedPrompt: (value: string) => void;
+    setMessages: (value: GptMessage[]) => void;
+    setPromptHistory: (value: GptPromptHistoryEntry[]) => void;
+    setActivePromptHistoryId: (value: string | null) => void;
+    setOpenAiConfigured: (value: boolean) => void;
+    setPromptSavedAt: (value: Date) => void;
+  },
+) {
+  setters.setDraftPrompt(data.prompt);
+  setters.setSavedPrompt(data.prompt);
+  setters.setMessages(data.messages);
+  setters.setPromptHistory(data.promptHistory);
+  setters.setActivePromptHistoryId(data.activePromptHistoryId);
+  setters.setOpenAiConfigured(data.openAiConfigured);
+  setters.setPromptSavedAt(new Date(data.updatedAt));
+}
 
 export function GptWorkspace() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [draftPrompt, setDraftPrompt] = useState(DEFAULT_GPT_PROMPT);
   const [savedPrompt, setSavedPrompt] = useState(DEFAULT_GPT_PROMPT);
+  const [promptHistory, setPromptHistory] = useState<GptPromptHistoryEntry[]>([]);
+  const [activePromptHistoryId, setActivePromptHistoryId] = useState<string | null>(null);
+  const [historySearch, setHistorySearch] = useState("");
   const [messages, setMessages] = useState<GptMessage[]>([]);
-  const [apiKey, setApiKey] = useState("");
+  const [openAiConfigured, setOpenAiConfigured] = useState(false);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(true);
   const [savingPrompt, setSavingPrompt] = useState(false);
+  const [restoringId, setRestoringId] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
   const [clearing, setClearing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [promptSavedAt, setPromptSavedAt] = useState<Date | null>(null);
+
+  const setters = {
+    setDraftPrompt,
+    setSavedPrompt,
+    setMessages,
+    setPromptHistory,
+    setActivePromptHistoryId,
+    setOpenAiConfigured,
+    setPromptSavedAt,
+  };
 
   const loadChat = useCallback(async () => {
     setLoading(true);
@@ -31,10 +66,7 @@ export function GptWorkspace() {
       const response = await fetch("/api/gpt");
       if (!response.ok) throw new Error("Не удалось загрузить чат");
       const data: GptChatData = await response.json();
-      setDraftPrompt(data.prompt);
-      setSavedPrompt(data.prompt);
-      setMessages(data.messages);
-      setPromptSavedAt(new Date(data.updatedAt));
+      applyChatData(data, setters);
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : "Ошибка загрузки");
     } finally {
@@ -44,17 +76,17 @@ export function GptWorkspace() {
 
   useEffect(() => {
     loadChat();
-    const storedKey = localStorage.getItem(OPENAI_API_KEY_STORAGE);
-    if (storedKey) setApiKey(storedKey);
   }, [loadChat]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, sending]);
 
-  const saveApiKey = () => {
-    localStorage.setItem(OPENAI_API_KEY_STORAGE, apiKey.trim());
-  };
+  const filteredHistory = useMemo(() => {
+    const query = historySearch.trim().toLowerCase();
+    if (!query) return promptHistory;
+    return promptHistory.filter((entry) => entry.content.toLowerCase().includes(query));
+  }, [historySearch, promptHistory]);
 
   const confirmPrompt = async () => {
     setSavingPrompt(true);
@@ -69,10 +101,7 @@ export function GptWorkspace() {
 
       const data = await response.json();
       if (!response.ok) throw new Error(data.error ? JSON.stringify(data.error) : "Не удалось сохранить промпт");
-
-      setSavedPrompt(data.prompt);
-      setDraftPrompt(data.prompt);
-      setPromptSavedAt(new Date(data.updatedAt));
+      applyChatData(data, setters);
     } catch (saveError) {
       setError(saveError instanceof Error ? saveError.message : "Ошибка сохранения промпта");
     } finally {
@@ -80,12 +109,28 @@ export function GptWorkspace() {
     }
   };
 
+  const restorePrompt = async (historyId: string) => {
+    setRestoringId(historyId);
+    setError(null);
+
+    try {
+      const response = await fetch(`/api/gpt/prompts/${historyId}/restore`, { method: "POST" });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Не удалось откатить промпт");
+      applyChatData(data, setters);
+    } catch (restoreError) {
+      setError(restoreError instanceof Error ? restoreError.message : "Ошибка отката");
+    } finally {
+      setRestoringId(null);
+    }
+  };
+
   const sendMessage = async () => {
     const trimmed = input.trim();
     if (!trimmed || sending) return;
 
-    if (!apiKey.trim()) {
-      setError("Укажите OpenAI API key");
+    if (!openAiConfigured) {
+      setError("Добавьте OPENAI_API_KEY в переменные окружения сервера");
       return;
     }
 
@@ -96,10 +141,7 @@ export function GptWorkspace() {
     try {
       const response = await fetch("/api/gpt/chat", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-openai-api-key": apiKey.trim(),
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ message: trimmed }),
       });
 
@@ -108,7 +150,7 @@ export function GptWorkspace() {
         throw new Error(typeof data.error === "string" ? data.error : "Не удалось отправить сообщение");
       }
 
-      setMessages(data.messages);
+      applyChatData(data, setters);
     } catch (sendError) {
       setError(sendError instanceof Error ? sendError.message : "Ошибка отправки");
       setInput(trimmed);
@@ -125,7 +167,7 @@ export function GptWorkspace() {
       const response = await fetch("/api/gpt", { method: "DELETE" });
       const data = await response.json();
       if (!response.ok) throw new Error("Не удалось очистить историю");
-      setMessages(data.messages);
+      applyChatData(data, setters);
     } catch (clearError) {
       setError(clearError instanceof Error ? clearError.message : "Ошибка очистки");
     } finally {
@@ -137,6 +179,13 @@ export function GptWorkspace() {
 
   return (
     <div className="flex h-[calc(100vh-8rem)] flex-col gap-4">
+      {!openAiConfigured && (
+        <p className="rounded-lg border border-amber-900/50 bg-amber-950/30 px-3 py-2 text-sm text-amber-200">
+          Укажите переменную окружения <code className="text-amber-100">OPENAI_API_KEY</code> на сервере (Railway →
+          Variables).
+        </p>
+      )}
+
       {error && (
         <p className="rounded-lg border border-red-900/50 bg-red-950/30 px-3 py-2 text-sm text-red-300">{error}</p>
       )}
@@ -150,41 +199,84 @@ export function GptWorkspace() {
             </p>
           </div>
 
-          <label className="flex min-h-0 flex-1 flex-col gap-2">
+          <label className="flex min-h-0 flex-col gap-2">
             <span className="text-xs text-zinc-400">Редактирование</span>
             <textarea
               value={draftPrompt}
               onChange={(event) => setDraftPrompt(event.target.value)}
               disabled={loading}
-              className="min-h-[180px] flex-1 resize-none rounded-lg border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none ring-zinc-500 focus:ring-2"
+              className="min-h-[140px] flex-1 resize-none rounded-lg border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none ring-zinc-500 focus:ring-2"
               placeholder="Опишите роль и правила для GPT..."
             />
           </label>
 
           <div className="space-y-2 rounded-lg border border-zinc-800 bg-zinc-950/80 p-3">
             <div className="flex items-center justify-between gap-2">
-              <span className="text-xs font-medium uppercase tracking-wide text-zinc-400">
-                Подтверждение
-              </span>
+              <span className="text-xs font-medium uppercase tracking-wide text-zinc-400">Подтверждение</span>
               {promptSavedAt && !promptChanged && (
                 <span className="text-[10px] text-emerald-400">Активен</span>
               )}
-              {promptChanged && (
-                <span className="text-[10px] text-amber-400">Есть несохранённые изменения</span>
-              )}
+              {promptChanged && <span className="text-[10px] text-amber-400">Есть несохранённые изменения</span>}
             </div>
-            <p className="max-h-28 overflow-y-auto whitespace-pre-wrap text-sm text-zinc-300">
+            <p className="max-h-24 overflow-y-auto whitespace-pre-wrap text-sm text-zinc-300">
               {draftPrompt || "Промпт пустой"}
             </p>
             <Button onClick={confirmPrompt} disabled={loading || savingPrompt || !promptChanged} className="w-full">
               <Check size={16} />
               {savingPrompt ? "Сохранение..." : "Подтвердить и сохранить промпт"}
             </Button>
-            {promptSavedAt && (
-              <p className="text-[10px] text-zinc-500">
-                Активный промпт сохранён: {promptSavedAt.toLocaleString()}
-              </p>
-            )}
+          </div>
+
+          <div className="flex min-h-0 flex-col gap-2 rounded-lg border border-zinc-800 bg-zinc-950/80 p-3">
+            <div className="flex items-center gap-2">
+              <History size={14} className="text-zinc-400" />
+              <span className="text-xs font-medium uppercase tracking-wide text-zinc-400">История промптов</span>
+            </div>
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-zinc-500" />
+              <Input
+                value={historySearch}
+                onChange={(event) => setHistorySearch(event.target.value)}
+                placeholder="Поиск по тексту..."
+                className="pl-9"
+              />
+            </div>
+            <div className="min-h-0 max-h-44 space-y-2 overflow-y-auto">
+              {filteredHistory.length === 0 && (
+                <p className="text-xs text-zinc-500">История пуста или ничего не найдено.</p>
+              )}
+              {filteredHistory.map((entry) => {
+                const isActive = entry.id === activePromptHistoryId;
+                return (
+                  <div
+                    key={entry.id}
+                    className={clsx(
+                      "rounded-lg border px-3 py-2",
+                      isActive ? "border-emerald-700/60 bg-emerald-950/20" : "border-zinc-800 bg-zinc-900/60",
+                    )}
+                  >
+                    <div className="mb-1 flex items-center justify-between gap-2">
+                      <span className="text-[10px] text-zinc-500">
+                        {new Date(entry.createdAt).toLocaleString()}
+                      </span>
+                      {isActive && <span className="text-[10px] text-emerald-400">Активный</span>}
+                    </div>
+                    <p className="line-clamp-3 whitespace-pre-wrap text-xs text-zinc-300">{entry.content}</p>
+                    {!isActive && (
+                      <Button
+                        variant="secondary"
+                        className="mt-2 w-full"
+                        disabled={restoringId === entry.id}
+                        onClick={() => restorePrompt(entry.id)}
+                      >
+                        <RotateCcw size={14} />
+                        {restoringId === entry.id ? "Откат..." : "Откатить"}
+                      </Button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
           </div>
         </section>
 
@@ -198,26 +290,6 @@ export function GptWorkspace() {
               <Trash2 size={16} />
               Очистить
             </Button>
-          </div>
-
-          <div className="space-y-2 rounded-lg border border-zinc-800 bg-zinc-950/80 p-3">
-            <label className="flex items-center gap-2 text-xs text-zinc-400">
-              <KeyRound size={14} />
-              OpenAI API Key
-            </label>
-            <div className="flex gap-2">
-              <Input
-                type="password"
-                value={apiKey}
-                onChange={(event) => setApiKey(event.target.value)}
-                placeholder="sk-..."
-                autoComplete="off"
-              />
-              <Button variant="secondary" onClick={saveApiKey} disabled={!apiKey.trim()}>
-                Сохранить
-              </Button>
-            </div>
-            <p className="text-[10px] text-zinc-500">Ключ хранится только в браузере, не отправляется в БД.</p>
           </div>
 
           <div className="min-h-0 flex-1 overflow-y-auto rounded-lg border border-zinc-800 bg-zinc-950/50 p-3">
@@ -264,9 +336,9 @@ export function GptWorkspace() {
               value={input}
               onChange={(event) => setInput(event.target.value)}
               placeholder="Напишите сообщение..."
-              disabled={loading || sending}
+              disabled={loading || sending || !openAiConfigured}
             />
-            <Button type="submit" disabled={loading || sending || !input.trim()}>
+            <Button type="submit" disabled={loading || sending || !input.trim() || !openAiConfigured}>
               <Send size={16} />
             </Button>
           </form>
