@@ -3,6 +3,7 @@ import { randomUUID } from "crypto";
 import { NextResponse } from "next/server";
 
 import { buildSystemPrompt, DEFAULT_CHAT_ID, ensureGptChat, parseGptMessages, savePrompt, serializeGptChat } from "@/lib/gpt-chat";
+import { OPENAI_CHAT_MODEL } from "@/lib/constants";
 import { getOpenAiApiKey, isOpenAiConfigured } from "@/lib/openai";
 import { prisma } from "@/lib/prisma";
 import { gptChatInputSchema } from "@/lib/validators";
@@ -56,9 +57,9 @@ export async function POST(req: Request) {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "gpt-4o-mini",
+        model: OPENAI_CHAT_MODEL,
         messages: openAiMessages,
-        temperature: 0.7,
+        temperature: 1.0,
       }),
     });
 
