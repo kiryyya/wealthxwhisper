@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Bot, CalendarDays, GalleryHorizontal, Grid3X3, List, Map, SunMoon } from "lucide-react";
+import { Bot, CalendarDays, GalleryHorizontal, Grid3X3, List, Map, PartyPopper, SunMoon } from "lucide-react";
 import { usePathname } from "next/navigation";
 import clsx from "clsx";
 
@@ -15,6 +15,7 @@ type SidebarProps = {
 const links = [
   { href: "/", label: "Лента", icon: Grid3X3 },
   { href: "/calendar", label: "Календарь", icon: CalendarDays },
+  { href: "/categories", label: "Категории", icon: PartyPopper, matchPrefix: true },
   { href: "/media", label: "Каталог изображений", icon: GalleryHorizontal },
   { href: "/records", label: "Тестовые записи", icon: List },
   { href: "/roadmap", label: "Roadmap", icon: Map },
@@ -41,7 +42,9 @@ export function Sidebar({ compact = false, onNavigate }: SidebarProps) {
 
       <nav className="space-y-2">
         {links.map((item) => {
-          const active = pathname === item.href;
+          const active = item.matchPrefix
+            ? pathname === item.href || pathname.startsWith(`${item.href}/`)
+            : pathname === item.href;
           const Icon = item.icon;
           return (
             <Link

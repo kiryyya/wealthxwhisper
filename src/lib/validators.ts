@@ -53,3 +53,12 @@ export const gptChatInputSchema = z.object({
   message: z.string().trim().min(1, "Message is required"),
   prompt: z.string().optional(),
 });
+
+export const eventCategoryInputSchema = z.object({
+  name: z.string().trim().min(1, "Name is required"),
+});
+
+export const eventCategoryUpdateSchema = z.object({
+  name: z.string().trim().min(1, "Name is required").optional(),
+  notes: z.string().optional(),
+});
