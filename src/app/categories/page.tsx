@@ -75,7 +75,9 @@ export default function CategoriesPage() {
             <div className="min-w-0 flex-1">
               <h2 className="truncate font-medium text-zinc-100">{category.name}</h2>
               <p className="mt-1 line-clamp-2 text-xs text-zinc-400">
-                {category.notes.trim() || "Заметок пока нет"}
+                {category.sectionsCount
+                  ? `${category.sectionsCount} разд.`
+                  : "Разделов пока нет"}
               </p>
             </div>
             <ChevronRight

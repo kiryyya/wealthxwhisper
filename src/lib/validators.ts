@@ -62,3 +62,21 @@ export const eventCategoryUpdateSchema = z.object({
   name: z.string().trim().min(1, "Name is required").optional(),
   notes: z.string().optional(),
 });
+
+export const eventCategorySectionInputSchema = z.object({
+  name: z.string().trim().min(1, "Name is required"),
+});
+
+export const eventCategorySectionUpdateSchema = z.object({
+  name: z.string().trim().min(1, "Name is required").optional(),
+  description: z.string().optional(),
+});
+
+export const eventCategorySectionTodoInputSchema = z.object({
+  text: z.string().trim().min(1, "Text is required"),
+});
+
+export const eventCategorySectionTodoUpdateSchema = z.object({
+  text: z.string().trim().min(1, "Text is required").optional(),
+  completed: z.boolean().optional(),
+});

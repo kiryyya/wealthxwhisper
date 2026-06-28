@@ -135,11 +135,39 @@ model GptPromptHistory {
 }
 
 model EventCategory {
-  id        String   @id @default(cuid())
+  id        String                 @id @default(cuid())
   name      String
-  notes     String   @default("")
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  notes     String                 @default("")
+  createdAt DateTime               @default(now())
+  updatedAt DateTime               @updatedAt
+  sections  EventCategorySection[]
 
   @@index([name])
+}
+
+model EventCategorySection {
+  id          String                     @id @default(cuid())
+  name        String
+  description String                     @default("")
+  sortOrder   Int                        @default(0)
+  categoryId  String
+  category    EventCategory              @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  todos       EventCategorySectionTodo[]
+  createdAt   DateTime                   @default(now())
+  updatedAt   DateTime                   @updatedAt
+
+  @@index([categoryId])
+}
+
+model EventCategorySectionTodo {
+  id        String               @id @default(cuid())
+  text      String
+  completed Boolean              @default(false)
+  sortOrder Int                  @default(0)
+  sectionId String
+  section   EventCategorySection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  createdAt DateTime             @default(now())
+  updatedAt DateTime             @updatedAt
+
+  @@index([sectionId])
 }

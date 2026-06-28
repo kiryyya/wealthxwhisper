@@ -101,6 +101,30 @@ export type EventCategory = {
   id: string;
   name: string;
   notes: string;
+  sectionsCount?: number;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type EventCategorySection = {
+  id: string;
+  categoryId: string;
+  name: string;
+  description: string;
+  sortOrder: number;
+  todos?: EventCategorySectionTodo[];
+  todosCount?: number;
+  openTodosCount?: number;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type EventCategorySectionTodo = {
+  id: string;
+  sectionId: string;
+  text: string;
+  completed: boolean;
+  sortOrder: number;
   createdAt: string;
   updatedAt: string;
 };

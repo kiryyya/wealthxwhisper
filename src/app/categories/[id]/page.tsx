@@ -1,92 +1,84 @@
 "use client";
 
-import { ArrowLeft, Save, Trash2 } from "lucide-react";
+import { ArrowLeft, ChevronRight, Plus, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Modal } from "@/components/ui/Modal";
-import type { EventCategory } from "@/types";
+import type { EventCategory, EventCategorySection } from "@/types";
+
+function sectionSubtitle(section: EventCategorySection) {
+  if (section.description.trim()) return section.description;
+  if (section.todosCount) {
+    const open = section.openTodosCount ?? 0;
+    return `${open} из ${section.todosCount} задач открыто`;
+  }
+  return "Описания и задач пока нет";
+}
 
 export default function CategoryPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
-  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [category, setCategory] = useState<EventCategory | null>(null);
-  const [name, setName] = useState("");
-  const [notes, setNotes] = useState("");
+  const [sections, setSections] = useState<EventCategorySection[]>([]);
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [dirty, setDirty] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [newName, setNewName] = useState("");
+  const [creating, setCreating] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const loadCategory = useCallback(async () => {
+  const loadData = useCallback(async () => {
     setLoading(true);
     setError(null);
 
     try {
-      const response = await fetch(`/api/event-categories/${params.id}`);
-      if (!response.ok) throw new Error("Категория не найдена");
-      const data: EventCategory = await response.json();
-      setCategory(data);
-      setName(data.name);
-      setNotes(data.notes);
-      setDirty(false);
+      const [categoryResponse, sectionsResponse] = await Promise.all([
+        fetch(`/api/event-categories/${params.id}`),
+        fetch(`/api/event-categories/${params.id}/sections`),
+      ]);
+
+      if (!categoryResponse.ok) throw new Error("Категория не найдена");
+
+      const categoryData: EventCategory = await categoryResponse.json();
+      const sectionsData = await sectionsResponse.json();
+
+      setCategory(categoryData);
+      setSections(Array.isArray(sectionsData) ? sectionsData : []);
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : "Ошибка загрузки");
+      setCategory(null);
     } finally {
       setLoading(false);
     }
   }, [params.id]);
 
   useEffect(() => {
-    loadCategory();
-    return () => {
-      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
-    };
-  }, [loadCategory]);
+    loadData();
+  }, [loadData]);
 
-  const saveCategory = useCallback(
-    async (payload?: { name: string; notes: string }) => {
-      if (!category) return;
+  const closeCreate = () => {
+    setCreateOpen(false);
+    setNewName("");
+  };
 
-      const data = payload ?? { name, notes };
-      setSaving(true);
-      setError(null);
+  const createSection = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!newName.trim() || creating) return;
 
-      try {
-        const response = await fetch(`/api/event-categories/${category.id}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(data),
-        });
-
-        const result = await response.json();
-        if (!response.ok) throw new Error("Не удалось сохранить");
-
-        setCategory(result);
-        setName(result.name);
-        setNotes(result.notes);
-        setDirty(false);
-      } catch (saveError) {
-        setError(saveError instanceof Error ? saveError.message : "Ошибка сохранения");
-      } finally {
-        setSaving(false);
-      }
-    },
-    [category, name, notes],
-  );
-
-  const scheduleSave = (nextName: string, nextNotes: string) => {
-    setDirty(true);
-    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
-    saveTimerRef.current = setTimeout(() => {
-      saveCategory({ name: nextName, notes: nextNotes });
-    }, 900);
+    setCreating(true);
+    await fetch(`/api/event-categories/${params.id}/sections`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: newName.trim() }),
+    });
+    closeCreate();
+    await loadData();
+    setCreating(false);
   };
 
   const removeCategory = async () => {
@@ -97,7 +89,7 @@ export default function CategoryPage() {
   };
 
   if (loading) {
-    return <p className="text-sm text-zinc-500">Загрузка категории...</p>;
+    return <p className="text-sm text-zinc-500">Загрузка...</p>;
   }
 
   if (!category) {
@@ -113,21 +105,18 @@ export default function CategoryPage() {
 
   return (
     <section className="space-y-5">
-      <header className="flex flex-wrap items-start justify-between gap-3">
-        <div className="space-y-2">
-          <Link
-            href="/categories"
-            className="inline-flex items-center gap-1 text-sm text-zinc-400 transition hover:text-zinc-200"
-          >
-            <ArrowLeft size={16} />
-            Все категории
-          </Link>
-          <h1 className="text-2xl font-semibold text-zinc-100">Категория</h1>
-        </div>
+      <header className="flex flex-wrap items-center justify-between gap-3">
+        <Link
+          href="/categories"
+          className="inline-flex items-center gap-1 text-sm text-zinc-400 transition hover:text-zinc-200"
+        >
+          <ArrowLeft size={16} />
+          Все категории
+        </Link>
         <div className="flex gap-2">
-          <Button variant="secondary" onClick={() => saveCategory()} disabled={saving || !dirty}>
-            <Save size={16} />
-            {saving ? "Сохранение..." : "Сохранить"}
+          <Button onClick={() => setCreateOpen(true)}>
+            <Plus size={16} />
+            Добавить
           </Button>
           <Button variant="ghost" onClick={() => setConfirmDelete(true)}>
             <Trash2 size={16} />
@@ -135,48 +124,60 @@ export default function CategoryPage() {
         </div>
       </header>
 
-      {error && (
-        <p className="rounded-lg border border-red-900/50 bg-red-950/30 px-3 py-2 text-sm text-red-300">
-          {error}
-        </p>
-      )}
+      <h1 className="text-2xl font-semibold text-zinc-100">{category.name}</h1>
 
-      <label className="block space-y-2">
-        <span className="text-sm text-zinc-300">Название</span>
-        <Input
-          value={name}
-          onChange={(event) => {
-            setName(event.target.value);
-            scheduleSave(event.target.value, notes);
-          }}
-        />
-      </label>
-
-      <label className="block space-y-2">
-        <span className="text-sm text-zinc-300">Заметки</span>
-        <textarea
-          value={notes}
-          onChange={(event) => {
-            setNotes(event.target.value);
-            scheduleSave(name, event.target.value);
-          }}
-          placeholder="Опишите особенности мероприятий в этой категории..."
-          className="min-h-[320px] w-full resize-y rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm text-zinc-100 outline-none ring-zinc-500 placeholder:text-zinc-500 focus:ring-2"
-        />
-      </label>
-
-      <p className="text-xs text-zinc-500">
-        {dirty && !saving && "Сохраняется автоматически..."}
-        {saving && "Сохранение..."}
-        {!dirty && !saving && category.updatedAt && (
-          <>Обновлено: {new Date(category.updatedAt).toLocaleString()}</>
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        {sections.length === 0 && (
+          <p className="col-span-full text-sm text-zinc-500">
+            Разделов пока нет. Добавьте первый.
+          </p>
         )}
-      </p>
+        {sections.map((section) => (
+          <Link
+            key={section.id}
+            href={`/categories/${category.id}/sections/${section.id}`}
+            className="group flex items-center justify-between rounded-xl border border-zinc-800 bg-zinc-900/50 p-4 transition hover:border-zinc-700 hover:bg-zinc-900"
+          >
+            <div className="min-w-0 flex-1">
+              <h2 className="truncate font-medium text-zinc-100">{section.name}</h2>
+              <p className="mt-1 line-clamp-2 text-xs text-zinc-400">
+                {sectionSubtitle(section)}
+              </p>
+            </div>
+            <ChevronRight
+              size={18}
+              className="ml-3 shrink-0 text-zinc-500 transition group-hover:text-zinc-300"
+            />
+          </Link>
+        ))}
+      </div>
+
+      <Modal open={createOpen} title="Новый раздел" onClose={closeCreate}>
+        <form onSubmit={createSection} className="space-y-4">
+          <label className="block space-y-1">
+            <span className="text-sm text-zinc-300">Название</span>
+            <Input
+              value={newName}
+              onChange={(event) => setNewName(event.target.value)}
+              placeholder="Например, подготовка"
+              autoFocus
+            />
+          </label>
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="secondary" onClick={closeCreate}>
+              Отмена
+            </Button>
+            <Button type="submit" disabled={!newName.trim() || creating}>
+              Добавить
+            </Button>
+          </div>
+        </form>
+      </Modal>
 
       <Modal open={confirmDelete} title="Удалить категорию?" onClose={() => setConfirmDelete(false)}>
         <div className="space-y-4">
           <p className="text-sm text-zinc-300">
-            Категория «{category.name}» и все заметки будут удалены без восстановления.
+            Категория «{category.name}» и все разделы будут удалены без восстановления.
           </p>
           <div className="flex justify-end gap-2">
             <Button variant="secondary" onClick={() => setConfirmDelete(false)}>

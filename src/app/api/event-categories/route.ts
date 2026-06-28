@@ -7,9 +7,17 @@ export async function GET() {
   try {
     const categories = await prisma.eventCategory.findMany({
       orderBy: { name: "asc" },
+      include: {
+        _count: { select: { sections: true } },
+      },
     });
 
-    return NextResponse.json(categories);
+    return NextResponse.json(
+      categories.map(({ _count, ...category }) => ({
+        ...category,
+        sectionsCount: _count.sections,
+      })),
+    );
   } catch (error) {
     console.error("GET /api/event-categories failed", error);
     return NextResponse.json({ error: "Failed to fetch categories" }, { status: 500 });
