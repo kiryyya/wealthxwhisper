@@ -49,8 +49,8 @@ export default function CategoriesPage() {
   };
 
   return (
-    <section className="space-y-5">
-      <div className="flex justify-end">
+    <section className="relative">
+      <div className="absolute right-0 top-0 z-10">
         <Button onClick={() => setCreateOpen(true)}>
           <Plus size={16} />
           Добавить

@@ -104,27 +104,24 @@ export default function CategoryPage() {
   }
 
   return (
-    <section className="space-y-5">
-      <header className="flex flex-wrap items-center justify-between gap-3">
-        <Link
-          href="/categories"
-          className="inline-flex items-center gap-1 text-sm text-zinc-400 transition hover:text-zinc-200"
-        >
-          <ArrowLeft size={16} />
-          Все категории
-        </Link>
-        <div className="flex gap-2">
-          <Button onClick={() => setCreateOpen(true)}>
-            <Plus size={16} />
-            Добавить
-          </Button>
-          <Button variant="ghost" onClick={() => setConfirmDelete(true)}>
-            <Trash2 size={16} />
-          </Button>
-        </div>
-      </header>
+    <section className="relative">
+      <div className="absolute right-0 top-0 z-10 flex gap-2">
+        <Button onClick={() => setCreateOpen(true)}>
+          <Plus size={16} />
+          Добавить
+        </Button>
+        <Button variant="ghost" onClick={() => setConfirmDelete(true)}>
+          <Trash2 size={16} />
+        </Button>
+      </div>
 
-      <h1 className="text-2xl font-semibold text-zinc-100">{category.name}</h1>
+      <Link
+        href="/categories"
+        className="absolute left-0 top-0 z-10 inline-flex items-center gap-1 text-sm text-zinc-400 transition hover:text-zinc-200"
+      >
+        <ArrowLeft size={16} />
+        Все категории
+      </Link>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {sections.length === 0 && (
