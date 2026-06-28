@@ -1,16 +1,17 @@
 "use client";
 
-import { ChevronRight, Plus, Search } from "lucide-react";
+import { ChevronRight, Plus } from "lucide-react";
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import { Modal } from "@/components/ui/Modal";
 import type { EventCategory } from "@/types";
 
 export default function CategoriesPage() {
   const [categories, setCategories] = useState<EventCategory[]>([]);
-  const [search, setSearch] = useState("");
+  const [createOpen, setCreateOpen] = useState(false);
   const [newName, setNewName] = useState("");
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
@@ -27,15 +28,10 @@ export default function CategoriesPage() {
     fetchCategories();
   }, [fetchCategories]);
 
-  const filtered = useMemo(() => {
-    const query = search.trim().toLowerCase();
-    if (!query) return categories;
-    return categories.filter(
-      (category) =>
-        category.name.toLowerCase().includes(query) ||
-        category.notes.toLowerCase().includes(query),
-    );
-  }, [categories, search]);
+  const closeCreate = () => {
+    setCreateOpen(false);
+    setNewName("");
+  };
 
   const createCategory = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -47,53 +43,30 @@ export default function CategoriesPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ name: newName.trim() }),
     });
-    setNewName("");
+    closeCreate();
     await fetchCategories();
     setCreating(false);
   };
 
   return (
     <section className="space-y-5">
-      <header className="space-y-1">
-        <h1 className="text-2xl font-semibold text-zinc-100">Категории мероприятий</h1>
-        <p className="text-sm text-zinc-400">
-          Выберите категорию, чтобы открыть страницу с заметками.
-        </p>
-      </header>
-
-      <form onSubmit={createCategory} className="flex flex-col gap-3 sm:flex-row">
-        <Input
-          value={newName}
-          onChange={(event) => setNewName(event.target.value)}
-          placeholder="Новая категория..."
-          className="flex-1"
-        />
-        <Button type="submit" disabled={!newName.trim() || creating}>
+      <div className="flex justify-end">
+        <Button onClick={() => setCreateOpen(true)}>
           <Plus size={16} />
           Добавить
         </Button>
-      </form>
-
-      <div className="relative">
-        <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-zinc-500" />
-        <Input
-          value={search}
-          onChange={(event) => setSearch(event.target.value)}
-          placeholder="Поиск по названию или заметкам..."
-          className="pl-9"
-        />
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {loading && (
           <p className="col-span-full text-sm text-zinc-500">Загрузка категорий...</p>
         )}
-        {!loading && filtered.length === 0 && (
+        {!loading && categories.length === 0 && (
           <p className="col-span-full text-sm text-zinc-500">
-            {search.trim() ? "Ничего не найдено." : "Категорий пока нет. Добавьте первую."}
+            Категорий пока нет. Добавьте первую.
           </p>
         )}
-        {filtered.map((category) => (
+        {categories.map((category) => (
           <Link
             key={category.id}
             href={`/categories/${category.id}`}
@@ -112,6 +85,28 @@ export default function CategoriesPage() {
           </Link>
         ))}
       </div>
+
+      <Modal open={createOpen} title="Новая категория" onClose={closeCreate}>
+        <form onSubmit={createCategory} className="space-y-4">
+          <label className="block space-y-1">
+            <span className="text-sm text-zinc-300">Название</span>
+            <Input
+              value={newName}
+              onChange={(event) => setNewName(event.target.value)}
+              placeholder="Например, конференция"
+              autoFocus
+            />
+          </label>
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="secondary" onClick={closeCreate}>
+              Отмена
+            </Button>
+            <Button type="submit" disabled={!newName.trim() || creating}>
+              Добавить
+            </Button>
+          </div>
+        </form>
+      </Modal>
     </section>
   );
 }
