@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Bot, CalendarDays, GalleryHorizontal, Grid3X3, List, Map, PartyPopper, SunMoon } from "lucide-react";
+import { BookOpen, Bot, CalendarDays, GalleryHorizontal, Grid3X3, List, Map, PartyPopper, SunMoon } from "lucide-react";
 import { usePathname } from "next/navigation";
 import clsx from "clsx";
 
@@ -16,6 +16,7 @@ const links = [
   { href: "/", label: "Лента", icon: Grid3X3 },
   { href: "/calendar", label: "Календарь", icon: CalendarDays },
   { href: "/categories", label: "Категории", icon: PartyPopper, matchPrefix: true },
+  { href: "/knowledge", label: "База знаний", icon: BookOpen, matchPrefix: true },
   { href: "/media", label: "Каталог изображений", icon: GalleryHorizontal },
   { href: "/records", label: "Тестовые записи", icon: List },
   { href: "/roadmap", label: "Roadmap", icon: Map },

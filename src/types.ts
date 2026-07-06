@@ -129,4 +129,15 @@ export type EventCategorySectionTodo = {
   updatedAt: string;
 };
 
+export type KnowledgeBasePage = {
+  id: string;
+  title: string;
+  content: string;
+  parentId: string | null;
+  sortOrder: number;
+  children?: KnowledgeBasePage[];
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type { TestRecord };

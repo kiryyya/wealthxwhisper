@@ -80,3 +80,14 @@ export const eventCategorySectionTodoUpdateSchema = z.object({
   text: z.string().trim().min(1, "Text is required").optional(),
   completed: z.boolean().optional(),
 });
+
+export const knowledgeBasePageInputSchema = z.object({
+  title: z.string().trim().min(1, "Title is required"),
+  parentId: z.string().nullable().optional(),
+});
+
+export const knowledgeBasePageUpdateSchema = z.object({
+  title: z.string().trim().min(1, "Title is required").optional(),
+  content: z.string().optional(),
+  parentId: z.string().nullable().optional(),
+});
